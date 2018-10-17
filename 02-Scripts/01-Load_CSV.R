@@ -1,21 +1,20 @@
 
-
-
 library(here)
 library(data.table)
 
 
+# Get the files names
+setwd(here('./womens_studies/00-Csv/'))
 
 
+###List Files
+files = list.files(pattern="*.txt")
+files
 
-
+# Load the Files
 DT = do.call(rbind, lapply(files, fread))
-DT = rbindlist(lapply(files, fread))
-
-
-tbl <-list.files(pattern = "*.csv") %>% map_df(~read_csv(.))
 
 
 
-tbl <- list.files(path = "./subdirectory/", pattern = "*.csv", full.names = T) %>% 
-  map_df(~read_csv(., col_types = cols(.default = "c"))) 
+
+
