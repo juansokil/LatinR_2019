@@ -12,6 +12,10 @@ library(tidyr)
 library(gender)
 library(stringr)
 library(bibliometrix)
+library(tidyverse)
+library(tidytext)
+library(yarrr)
+
 
 ###Carga de Archivo###
 #completo <- readFiles("https://raw.githubusercontent.com/juansokil/womens_studies/master/00-Csv/plain.txt")
@@ -53,6 +57,78 @@ tabla <- authors_unique %>%
   count()
 
 View(tabla)
+
+
+
+
+##############TOKENS#######################
+
+###Genera base abstracts###
+abstract <- base_completa %>% 
+  select(UT, PY, AB) %>% 
+filter(!is.na(AB))  %>% 
+filter(!is.na(PY) & PY < 2019)  
+
+
+###carga stopwords###
+data(stop_words)
+###define nuevas stopwords###
+undesirable_words <- c("purpose", "objective", "study", "lyrics","repeats", "la", "da", "uh", "ah")
+
+
+#Create tidy text format: Unnested, Unsummarized, -Undesirables, Stop and Short words
+genera_tokens <- abstract %>%
+  #unnest_tokens(bigram, AB, token = "ngrams", n = 2)
+  unnest_tokens(word, AB) %>% #Break the lyrics into individual words
+  filter(!word %in% undesirable_words) %>% #Remove undesirables
+  filter(!nchar(word) < 4) %>% #Words like "ah" or "oo" used in music
+  anti_join(stop_words) #Data provided by the tidytext package
+
+##https://www.datacamp.com/community/tutorials/sentiment-analysis-R
+
+
+
+
+
+
+###cuenta la cantidad de palabra por articulo###
+word_summary <- genera_tokens %>%
+  group_by(PY, UT) %>%
+  mutate(word_count = n_distinct(word)) %>%
+  select(UT, PY, word_count) %>%
+  distinct() %>% #To obtain one record per song
+  ungroup()
+
+
+
+###Arma diccionario de palabras###
+word_dictionary <- genera_tokens %>%
+  group_by(word) %>%
+  distinct() %>% #To obtain one record per song
+  ungroup()
+
+
+
+
+pirateplot(formula =  word_count ~ PY , #Formula
+           data = word_summary, #Data frame
+           xlab = NULL, ylab = "Recuento de Palabras distintas", #Axis labels
+           main = "Diversidad de léxico por año", #Plot title
+           pal = "google", #Color scheme
+           point.o = .2, #Points
+           avg.line.o = 1, #Turn on the Average/Mean line
+           theme = 0, #Theme
+           point.pch = 16, #Point `pch` type
+           point.cex = 1.5, #Point size
+           jitter.val = .1, #Turn on jitter to see the songs better
+           cex.lab = .9, cex.names = .7) #Axis label size
+
+
+
+
+
+
+
 
 
 
