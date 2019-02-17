@@ -100,10 +100,10 @@ word_summary <- genera_tokens %>%
   ungroup()
 
 
-
 ###Arma diccionario de palabras###
 word_dictionary <- genera_tokens %>%
   group_by(word) %>%
+  select(word) %>%
   distinct() %>% #To obtain one record per song
   ungroup()
 
