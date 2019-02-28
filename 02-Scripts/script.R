@@ -15,7 +15,9 @@ library(bibliometrix)
 library(tidyverse)
 library(tidytext)
 library(yarrr)
+library(udpipe)
 
+udmodel <- udpipe_download_model(language = "english")
 
 ###Carga de Archivo###
 #completo <- readFiles("https://raw.githubusercontent.com/juansokil/womens_studies/master/00-Csv/plain.txt")
@@ -86,7 +88,13 @@ genera_tokens <- abstract %>%
 
 ##https://www.datacamp.com/community/tutorials/sentiment-analysis-R
 
+  
+genera_tokens2 <- udpipe(split(genera_tokens$word, genera_tokens$UT), "english")
+genera_tokens2 <- filter(genera_tokens2, upos %in% c("PROPN", "NOUN", "ADJ"))
 
+
+
+###ACA PUEDO COMPARAR GENERA_TOKENS CON GENERA_TOKENS2, AHI SE VE LAS PALABRAS QUE SE ELIMINARON
 
 
 
