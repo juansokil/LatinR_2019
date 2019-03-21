@@ -78,6 +78,20 @@ abstract %>%
 
 
 
+############VER TODO ESTO #############################################################################
+####una base con 2 variables: id y texto
+unn <- salida %>%
+  unnest_tokens(word, text)
+
+###aca tendria que aplicar la lematización###
+
+### una vez que tengo la variable la reagrupo por id para que me quede igual pero lematizada
+ok <- unn %>% 
+  group_by(id) %>% 
+  summarise(text = str_c(word, collapse = " "))
+
+############ACA TERMINA #############################################################################
+
 abstract <- head(abstract, 5000)
 ###carga stopwords###
 data(stop_words)
