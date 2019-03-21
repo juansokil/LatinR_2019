@@ -82,7 +82,7 @@ abstract <- head(abstract, 5000)
 ###carga stopwords###
 data(stop_words)
 ###define nuevas stopwords###
-undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published","elsevier","the","research","of","with","gender","elsevier","article","women","social","women´s")
+undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published","elsevier","the","research","of","with","gender","elsevier","article","women","social","women's","methods","results","analysis","conclusions","findings")
 
 
 genera_tokens <- abstract %>%
@@ -101,35 +101,27 @@ genera_tokens <- abstract %>%
   filter(!str_detect(ngrama, "[0-9]")) %>%  
   filter(!nchar(ngrama) < 5) 
 
-###CUENTA LA CANTIDAD DE VECES QUE APARECE UN NGRAMA###
-genera_diccionario <- genera_tokens %>%
-  count(ngrama) %>%
-  filter(n > 5) %>%
-  distinct() %>%
-  ungroup()
+
+
 
 
 ###agrupo por palabra y cuento los distintos UT en los que esta, si esta en mas de 5 articulos, queda###
-genera_tokens2 <- genera_tokens %>%
+diccionario <- genera_tokens %>%
   group_by (ngrama) %>%
-  summarize (Unique_Elements = n_distinct(UT)) %>%
+  summarize (n=n_distinct(UT)) %>%
   filter(n > 5) %>%
   distinct() %>%
   ungroup()
 
+View(diccionario)
 
 
-
-
-###
+######ESTO LO TENGO QUE RESOLVER##### QUIZAS CON UN JOIN### PARA MANTENER SOLO LAS PALABRAS QUE ESTAN EN EL DICCIONARIO
 genera_tokens2 <- genera_tokens %>%
   count(UT, ngrama) %>%
   filter(n > 5) %>%
   distinct() %>%
   ungroup()
-
-
-
 
 dtm <- genera_tokens2 %>%
   cast_dtm(UT, ngrama, n)
