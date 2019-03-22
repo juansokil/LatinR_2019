@@ -90,6 +90,20 @@ ok <- unn %>%
   group_by(id) %>% 
   summarise(text = str_c(word, collapse = " "))
 
+
+library(udpipe)
+en <- udpipe_download_model(language = "english")
+
+## Either give a file in the current working directory
+udmodel_english <- udpipe_load_model(file = "C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
+
+x <- udpipe_annotate(udmodel_english, x = abstract$AB)
+x <- as_data_frame(x)
+
+##https://bnosac.github.io/udpipe/docs/doc7.html
+
+
+
 ############ACA TERMINA #############################################################################
 
 abstract <- head(abstract, 5000)
