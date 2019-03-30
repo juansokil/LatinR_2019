@@ -16,6 +16,9 @@ library(tidytext)
 library(topicmodels)
 library(yarrr)
 library(udpipe)
+library(igraph)
+library(ggraph)
+library(ggplot2)
 
 #udmodel <- udpipe_download_model(language = "english")
 
@@ -56,151 +59,6 @@ authors_unique <- unique(authors2)
 tabla <- authors_unique %>%
   group_by(PY, gender) %>%
   count()
-
-View(tabla)
-
-
-
-
-##############TOKENS#######################
-###Genera base abstracts###
-abstract <- base_completa %>% 
-  select(UT, PY, AB) %>% 
-  filter(!is.na(AB))  %>% 
-  filter(!is.na(PY) & PY > 2007 & PY < 2019)
-
-
-abstract %>%
-  group_by (PY) %>%
-  summarize (cantidad=n())%>%
-  ggplot(aes(PY,cantidad)) +
-  geom_bar(stat='identity')
-
-
-
-############VER TODO ESTO #############################################################################
-####una base con 2 variables: id y texto
-unn <- salida %>%
-  unnest_tokens(word, text)
-
-###aca tendria que aplicar la lematización###
-
-### una vez que tengo la variable la reagrupo por id para que me quede igual pero lematizada
-ok <- unn %>% 
-  group_by(id) %>% 
-  summarise(text = str_c(word, collapse = " "))
-
-
-library(udpipe)
-en <- udpipe_download_model(language = "english")
-
-## Either give a file in the current working directory
-udmodel_english <- udpipe_load_model(file = "C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
-
-x <- udpipe_annotate(udmodel_english, x = abstract$AB)
-x <- as_data_frame(x)
-
-##https://bnosac.github.io/udpipe/docs/doc7.html
-
-
-
-############ACA TERMINA #############################################################################
-
-abstract <- head(abstract, 5000)
-###carga stopwords###
-data(stop_words)
-###define nuevas stopwords###
-undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published","elsevier","the","research","of","with","gender","elsevier","article","women","social","women's","methods","results","analysis","conclusions","findings")
-
-
-genera_tokens <- abstract %>%
-  unnest_tokens(ngram, AB, token = "ngrams", n = 4, n_min=1) %>% #, Trigamas, Bigramas y Unigramas
-  mutate(ngrama=ngram) %>%
-  separate(ngram, c("word1", "word2", "word3","word4"), sep = " ") %>%
-  filter(!word1 %in% stop_words$word,
-         !word2 %in% stop_words$word,
-         !word3 %in% stop_words$word,
-         !word4 %in% stop_words$word) %>%
-  filter(!word1 %in% undesirable_words,
-         !word2 %in% undesirable_words,
-         !word3 %in% undesirable_words,
-         !word4 %in% undesirable_words) %>%
-  select(UT,ngrama) %>%
-  filter(!str_detect(ngrama, "[0-9]")) %>%  
-  filter(!nchar(ngrama) < 5) 
-
-
-
-
-
-###agrupo por palabra y cuento los distintos UT en los que esta, si esta en mas de 5 articulos, queda###
-diccionario <- genera_tokens %>%
-  group_by (ngrama) %>%
-  summarize (n=n_distinct(UT)) %>%
-  filter(n > 5) %>%
-  distinct() %>%
-  ungroup()
-
-View(diccionario)
-
-
-######ESTO LO TENGO QUE RESOLVER##### QUIZAS CON UN JOIN### PARA MANTENER SOLO LAS PALABRAS QUE ESTAN EN EL DICCIONARIO
-genera_tokens2 <- genera_tokens %>%
-  count(UT, ngrama) %>%
-  filter(n > 5) %>%
-  distinct() %>%
-  ungroup()
-
-dtm <- genera_tokens2 %>%
-  cast_dtm(UT, ngrama, n)
-
-
-
-###https://www.tidytextmining.com/dtm.html
-
-####LDA####
-ap_lda <- LDA(dtm, k = 4, control = list(seed = 1234))
-ap_lda
-
-ap_topics <- tidy(ap_lda, matrix = "beta")
-ap_topics
-
-ap_top_terms <- ap_topics %>%
-  group_by(topic) %>%
-  top_n(10, beta) %>%
-  ungroup() %>%
-  arrange(topic, -beta)
-
-ap_top_terms %>%
-  mutate(term = reorder(term, beta)) %>%
-  ggplot(aes(term, beta, fill = factor(topic))) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~ topic, scales = "free") +
-  coord_flip()
-
-beta_spread <- ap_topics %>%
-  mutate(topic = paste0("topic", topic)) %>%
-  spread(topic, beta) %>%
-  filter(topic1 > .001 | topic2 > .001) %>%
-  mutate(log_ratio = log2(topic2 / topic1))
-
-beta_spread
-
-ap_documents <- tidy(ap_lda, matrix = "gamma")
-ap_documents
-
-####https://www.tidytextmining.com/topicmodeling.html
-#https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
-#https://github.com/dgrtwo/tidy-text-mining/blob/master/04-word-combinations.Rmd
-##https://www.datacamp.com/community/tutorials/sentiment-analysis-R
-##https://www.r-bloggers.com/udpipe-version-0-7-for-natural-language-processing-nlp-alongside-tidytext-quanteda-tm/##
-
-
-
-
-
-
-
 
 #####################PARTICIPACION##################
 ###### AUTORES TOTALES######
@@ -257,6 +115,144 @@ table(base_completa$author_female, base_completa$PY)
 table(base_completa$author_male, base_completa$PY)
 
 
+##############TOKENS#######################
+###Genera base abstracts###
+abstract <- base_completa %>% 
+  select(UT, PY, AB) %>% 
+  filter(!is.na(AB))  %>% 
+  filter(!is.na(PY) & PY > 2007 & PY < 2019)
+
+
+abstract %>%
+  group_by (PY) %>%
+  summarize (cantidad=n())%>%
+  ggplot(aes(PY,cantidad)) +
+  geom_bar(stat='identity')
+
+
+#udmodel <- udpipe_download_model(language = "english")
+udmodel_english <- udpipe_load_model(file = "C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
+
+x <- udpipe_annotate(udmodel_english, x = abstract$AB, trace = TRUE)
+x <- as.data.frame(x)
+
+
+
+####ARMAR GRAFOS#####
+cooc <- cooccurrence(x = subset(x, upos %in% c("NOUN", "ADJ")), 
+                     term = "lemma", 
+                     group = c("doc_id", "paragraph_id", "sentence_id"))
+
+wordnetwork <- head(cooc, 30)
+wordnetwork <- graph_from_data_frame(wordnetwork)
+ggraph(wordnetwork, layout  = "fr") +
+  geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = "purple", alpha=0.5) +
+  geom_node_text(aes(label = name), col = "black", size = 5) +
+  theme_graph(base_family = "Arial Narrow") +
+  theme(legend.position = "none") +
+  labs(title = "Co-ocurrencias en la misma oración", subtitle = "Sustantivos y Adjetivos")
+
+
+
+
+relacion <- as.data.frame(cbind(unique(x$doc_id),abstract$UT))
+bla <- full_join(x, relacion, by = c("doc_id"="V1"))
+data_lemmatizada <- bla %>% 
+  group_by(doc_id,V2) %>% 
+  summarise(text = str_c(lemma, collapse = " "))
+
+data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="V2"))
+
+
+
+###carga stopwords###
+data(stop_words)
+###define nuevas stopwords###
+undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published",
+                       "elsevier","the","research","of","with","gender","elsevier","article",
+                       "women","social","women's","methods","results","analysis","conclusions",
+                       "findings","background","woman","result","examine","method","report",
+                       "explore","suggest")
+
+
+genera_tokens <- data_lemmatizada %>%
+  unnest_tokens(ngram, text, token = "ngrams", n = 4, n_min=1) %>% #, Trigamas, Bigramas y Unigramas
+  mutate(ngrama=ngram) %>%
+  separate(ngram, c("word1", "word2", "word3","word4"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word,
+         !word3 %in% stop_words$word,
+         !word4 %in% stop_words$word) %>%
+  filter(!word1 %in% undesirable_words,
+         !word2 %in% undesirable_words,
+         !word3 %in% undesirable_words,
+         !word4 %in% undesirable_words) %>%
+          select(UT,ngrama) %>%
+          filter(!str_detect(ngrama, "[0-9]")) %>%  
+          filter(!nchar(ngrama) < 5) 
+
+
+################
+genera_tokens2 <- genera_tokens %>%
+  count(UT, ngrama) %>%
+  distinct() %>%
+  ungroup()
+
+dtm <- genera_tokens2 %>%
+  cast_dtm(UT, ngrama, n)
+
+bla <- removeSparseTerms(dtm, 0.99)
+rowTotals <- apply(bla , 1, sum) #Find the sum of words in each Document
+bla.new   <- bla[rowTotals> 0, ]           #remove all docs without words
+
+
+####LDA####
+ap_lda <- LDA(dtm, k = 4, control = list(seed = 1234))
+ap_lda
+
+ap_topics <- tidy(ap_lda, matrix = "beta")
+ap_topics
+
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+ap_top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+beta_spread <- ap_topics %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  spread(topic, beta) %>%
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1))
+
+beta_spread
+
+ap_documents <- tidy(ap_lda, matrix = "gamma")
+ap_documents
+
+####https://www.tidytextmining.com/topicmodeling.html
+#https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
+#https://github.com/dgrtwo/tidy-text-mining/blob/master/04-word-combinations.Rmd
+##https://www.datacamp.com/community/tutorials/sentiment-analysis-R
+##https://www.r-bloggers.com/udpipe-version-0-7-for-natural-language-processing-nlp-alongside-tidytext-quanteda-tm/##
+
+
+
+
+
+
+
+
+
+
+
 
 
 ####ANALISIS BIBLIOMETRICO####
@@ -298,14 +294,4 @@ net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", s
 
 
 
-
-
-
-
-
-####
-
-ruta <-here('/womens_studies/00-Csv/savedrecs002.txt')
-bla <- paste0(ruta,"*.txt")
-bla
 
