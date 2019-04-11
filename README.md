@@ -1,5 +1,7 @@
-# womens_studies
+# ¿Quienes investigan sobre género?
 
 #Insumo - Publicaciones Científicas de SCI 
-. Identificar el genero de los autores
-. Realizar alguna tecnica de Topic Model
+. Identificar el sexo de los autores
+. Limpieza de Titulo + Resumen
+. Modelado de tópicos
+
