@@ -13,13 +13,16 @@ library(udpipe)
 library(igraph)
 library(ggraph)
 library(ggplot2)
+library(tm)
+#install.packages("ldatuning")
+library(ldatuning)
 
 
 #############Levanta datos#####################3
 base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1')
 
 ################Defino el modelo UDPIPE##############
-udmodel <- udpipe_download_model(language = "english")
+#udmodel <- udpipe_download_model(language = "english")
 udmodel_english <- udpipe_load_model(file = "./LatinR_2019/04-Modelos/english-ewt-ud-2.4-190531.udpipe")
 
 ##############TOKENS#######################
@@ -32,6 +35,7 @@ abstract <- base_completa %>%
 ############LEMMATIZACION######
 x <- udpipe_annotate(udmodel_english, x = abstract$AB, trace = TRUE)
 x <- as.data.frame(x)
+
 
 
 relacion <- data.frame(abstract$UT, unique(x$doc_id))
@@ -58,12 +62,13 @@ ggraph(wordnetwork, layout  = "fr") +
 
 bla <- full_join(x, relacion, by = c("doc_id"="unique.x.doc_id."))
 data_lemmatizada <- bla %>% 
-  group_by(doc_id,V2) %>% 
+  group_by(doc_id,abstract.UT) %>% 
   summarise(text = str_c(lemma, collapse = " "))
 
-data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="V2"))
 
-View(data_lemmatizada)
+data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
+
+
 
 ###carga stopwords###
 data(stop_words)
@@ -104,15 +109,89 @@ dtm <- genera_tokens2 %>%
 bla <- removeSparseTerms(dtm, 0.99)
 rowTotals <- apply(bla , 1, sum) #Find the sum of words in each Document
 bla.new   <- bla[rowTotals> 0, ]           #remove all docs without words
+View(bla.new)
 
 
-####LDA####
-ap_lda <- LDA(dtm, k = 4, control = list(seed = 1234))
+
+####LDA TUNING#####
+#####http://www.bernhardlearns.com/2017/05/topic-models-lda-and-ctm-in-r-with.html###
+
+control_list_gibbs <- list(burnin = 25,iter = 50,seed = 0:4,nstart = 5,best = TRUE)
+
+system.time(
+  topic_number_lemma <- FindTopicsNumber(
+    dtm,
+    topics = 2:100,
+    metrics = c( "Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+    method = "Gibbs",
+    control = control_list_gibbs,
+    verbose = TRUE
+  )
+)
+
+
+system.time(
+  topic_number_lemma <- FindTopicsNumber(
+    dtm,
+    topics = 2:100,
+    metrics = c( "Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+    method = "Gibbs",
+    control = control_list_gibbs,
+    verbose = TRUE
+  ))
+
+
+
+#score_models(models, dtm, topics = seq(10, 40, by = 10),
+#             metrics = c("CaoJuan2009", "Arun2010", "Deveaud2014"), verbose = FALSE)
+
+#http://rpubs.com/nikita-moor/107657
+
+
+FindTopicsNumber_plot(topic_number_lemma)
+
+para <- tibble(k = c(2,3,9,12,50))
+
+system.time(
+  lemma_tm <- para %>%
+    mutate(lda = map(k, 
+                     function(k) LDA(
+                       k=k, 
+                       x=dtm, 
+                       method="Gibbs", 
+                       control=control_list_gibbs
+                     )
+    )
+    )
+)
+
+
+####LDA#################
+ap_lda <- LDA(dtm, k = 4, control = list(seed = 1234, alpha = 0.1))
 ap_lda
+
+
+
 
 ap_topics <- tidy(ap_lda, matrix = "beta")
 ap_topics
 
+
+
+
+# visualize the most important terms within each topic
+#http://rstudio-pubs-static.s3.amazonaws.com/266937_33212ab45f2540d099d07e203ca59812.html
+ap_important_terms <- ap_topics %>%
+  filter(beta > .004) %>%
+  mutate(term = reorder(term, beta))
+
+ggplot(ap_important_terms, aes(term, beta)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ topic, scales = "free") +
+  theme(axis.text.x = element_text(angle = 90, size = 15))
+
+
+# visualize the top terms within each topic
 ap_top_terms <- ap_topics %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
@@ -126,6 +205,10 @@ ap_top_terms %>%
   facet_wrap(~ topic, scales = "free") +
   coord_flip()
 
+
+################BETA#############
+
+
 beta_spread <- ap_topics %>%
   mutate(topic = paste0("topic", topic)) %>%
   spread(topic, beta) %>%
@@ -134,8 +217,44 @@ beta_spread <- ap_topics %>%
 
 beta_spread
 
-ap_documents <- tidy(ap_lda, matrix = "gamma")
-ap_documents
+
+
+# get classification of each document
+td_lda_docs <- tidy(ap_lda, matrix = "gamma")
+
+doc_classes <- td_lda_docs %>%
+  group_by(document) %>%
+  top_n(1) %>%
+  ungroup()
+
+# which were we most uncertain about?
+doc_classes %>%
+  arrange(gamma)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ####https://www.tidytextmining.com/topicmodeling.html
 #https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
