@@ -20,16 +20,42 @@ library(ldatuning)
 
 #############Levanta datos#####################3
 base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1')
+#base_completa = read.csv("C:/source/LatinR_2019/01-Bases/base_completa.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE)
+#base_completa = head(base_completa, 150)
+#glimpse(base_completa)
 
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
 udmodel_english <- udpipe_load_model(file = "./LatinR_2019/04-Modelos/english-ewt-ud-2.4-190531.udpipe")
+#udmodel_english <- udpipe_load_model("C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
+
 
 ##############TOKENS#######################
 abstract <- base_completa %>% 
   select(UT, PY, AB) %>% 
   filter(!is.na(AB))  %>% 
   filter(!is.na(PY) & PY > 2007 & PY < 2019)
+
+
+
+data(stop_words)
+
+undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published",
+                       "elsevier","the","research","of","with","gender","elsevier","article",
+                       "women","social","women's","methods","results","analysis","conclusions",
+                       "findings","background","woman","result","examine","method","report",
+                       "explore","suggest")
+
+
+abstract2 <- abstract %>%
+  unnest_tokens(word, AB, strip_punct =FALSE, strip_numeric = TRUE) %>%
+  anti_join(stop_words)  %>% 
+  filter(!word %in% undesirable_words) %>%
+  group_by(UT, PY) %>%
+  summarize(text = str_c(word, collapse = " "))
+
+abstract = full_join(abstract2, abstract, by = c("UT", "PY"))
+
 
 
 ############LEMMATIZACION######
@@ -56,7 +82,7 @@ ggraph(wordnetwork, layout  = "fr") +
   geom_node_text(aes(label = name), col = "black", size = 5) +
   theme_graph(base_family = "Arial Narrow") +
   theme(legend.position = "none") +
-  labs(title = "Co-ocurrencias en la misma oración", subtitle = "Sustantivos y Adjetivos")
+  labs(title = "Co-ocurrencias en la misma oraciÃ³n", subtitle = "Sustantivos y Adjetivos")
 
 
 
@@ -68,32 +94,16 @@ data_lemmatizada <- bla %>%
 
 data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
 
+data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
 
-
-###carga stopwords###
-data(stop_words)
-###define nuevas stopwords###
-undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published",
-                       "elsevier","the","research","of","with","gender","elsevier","article",
-                       "women","social","women's","methods","results","analysis","conclusions",
-                       "findings","background","woman","result","examine","method","report",
-                       "explore","suggest")
+data_lemmatizada$text.x[1]
+data_lemmatizada$text.y[1]
 
 
 genera_tokens <- data_lemmatizada %>%
   unnest_tokens(ngram, text, token = "ngrams", n = 4, n_min=1) %>% #, Trigamas, Bigramas y Unigramas
-  mutate(ngrama=ngram) %>%
-  separate(ngram, c("word1", "word2", "word3","word4"), sep = " ") %>%
-  filter(!word1 %in% stop_words$word,
-         !word2 %in% stop_words$word,
-         !word3 %in% stop_words$word,
-         !word4 %in% stop_words$word) %>%
-  filter(!word1 %in% undesirable_words,
-         !word2 %in% undesirable_words,
-         !word3 %in% undesirable_words,
-         !word4 %in% undesirable_words) %>%
-  select(UT,ngrama) %>%
-  filter(!str_detect(ngrama, "[0-9]")) %>%  
+  mutate(ngrama=ngram)  %>%
+  select(UT,ngrama) %>%  
   filter(!nchar(ngrama) < 5) 
 
 
