@@ -16,17 +16,17 @@ library(ggplot2)
 library(tm)
 #install.packages("ldatuning")
 library(ldatuning)
-
+library(scales)
 
 #############Levanta datos#####################3
-base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1')
+base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE)
 #base_completa = read.csv("C:/source/LatinR_2019/01-Bases/base_completa.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE)
 #base_completa = head(base_completa, 150)
 #glimpse(base_completa)
 
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
-udmodel_english <- udpipe_load_model(file = "./LatinR_2019/04-Modelos/english-ewt-ud-2.4-190531.udpipe")
+udmodel_english <- udpipe_load_model(file = "../04-Modelos/english-ewt-ud-2.4-190531.udpipe")
 #udmodel_english <- udpipe_load_model("C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
 
 
@@ -36,10 +36,7 @@ abstract <- base_completa %>%
   filter(!is.na(AB))  %>% 
   filter(!is.na(PY) & PY > 2007 & PY < 2019)
 
-
-
 data(stop_words)
-
 undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published",
                        "elsevier","the","research","of","with","gender","elsevier","article",
                        "women","social","women's","methods","results","analysis","conclusions",
@@ -57,9 +54,12 @@ abstract2 <- abstract %>%
 abstract = full_join(abstract2, abstract, by = c("UT", "PY"))
 
 
+###remuevo objetos###
+rm(abstract2, stop_words, base_completa)
+
 
 ############LEMMATIZACION######
-x <- udpipe_annotate(udmodel_english, x = abstract$AB, trace = TRUE)
+x <- udpipe_annotate(udmodel_english, x = abstract$text, trace = TRUE)
 x <- as.data.frame(x)
 
 
@@ -74,15 +74,69 @@ cooc <- cooccurrence(x = subset(x, upos %in% c("NOUN", "ADJ")),
                      group = c("doc_id", "paragraph_id", "sentence_id"))
 
 
-wordnetwork <- head(cooc, 30)
+wordnetwork <- head(cooc, 100)
 wordnetwork <- graph_from_data_frame(wordnetwork)
 
-ggraph(wordnetwork, layout  = "fr") +
-  geom_edge_link(aes(width = cooc, edge_alpha = cooc), edge_colour = "purple", alpha=0.5) +
-  geom_node_text(aes(label = name), col = "black", size = 5) +
-  theme_graph(base_family = "Arial Narrow") +
-  theme(legend.position = "none") +
-  labs(title = "Co-ocurrencias en la misma oración", subtitle = "Sustantivos y Adjetivos")
+g<- simplify(wordnetwork, remove.multiple = TRUE)
+
+##########################PODA DEL GRAFO######################
+####Minimum Spanning Tree###
+min_spanning_tree <- mst(g, weights = E(g)$weight)
+####Maximum Spanning Tree###
+#max_spanning_tree <- mst(g, weights = 1/E(g)$weight)
+
+
+####Clusterizaciones ####
+rw <- cluster_walktrap(g, weights = E(g)$weight, steps = 2,
+                       merges = TRUE, modularity = TRUE, membership = TRUE)
+fg <- fastgreedy.community(as.undirected(g))
+
+
+layouts <- grep("^layout_", ls("package:igraph"), value=TRUE)[-1] 
+# Remove layouts that do not apply to our graph.
+layouts <- layouts[!grepl("bipartite|merge|norm|sugiyama|tree", layouts)]
+par(mfrow=c(4,4), mar=c(1,1,1,1))
+set.seed(1991) 
+for (layout in layouts) {
+  print(layout)
+  l <- do.call(layout, list(g)) 
+  plot(min_spanning_tree, edge.arrow.mode=0, layout=l, main=layout, 
+       vertex.size=degree(g)*1.2, vertex.label.cex=0.5,vertex.label.color="black",
+       vertex.color=fg$membership, vertex.shape="circle",
+       edge.width=E(g)$weight/15) }
+
+par(mfrow=c(1,1))
+
+
+####DEBO SELECCIONAR ####
+
+dev.off()
+set.seed(1991)
+plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_with_fr, main=layout, 
+     vertex.size=degree(g)*1.2, vertex.label.cex=0.5,vertex.label.color="black",
+     vertex.color=fg$membership, vertex.shape="circle",
+     edge.width=E(g)$weight/15) 
+
+
+dev.off()
+set.seed(1991)
+plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_components(min_spanning_tree), main=layout, 
+     vertex.size=degree(g)*1.2, vertex.label.cex=0.5,vertex.label.color="black",
+     vertex.color=fg$membership, vertex.shape="circle",
+     edge.width=E(g)$weight/15) 
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -91,30 +145,30 @@ data_lemmatizada <- bla %>%
   group_by(doc_id,abstract.UT) %>% 
   summarise(text = str_c(lemma, collapse = " "))
 
+View(data_lemmatizada)
+#data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
 
-data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
-
-data_lemmatizada <- full_join(abstract, data_lemmatizada, by = c("UT"="abstract.UT"))
-
-data_lemmatizada$text.x[1]
-data_lemmatizada$text.y[1]
+#View(data_lemmatizada)
+#data_lemmatizada$text.x[1]
+#data_lemmatizada$text.y[1]
 
 
 genera_tokens <- data_lemmatizada %>%
   unnest_tokens(ngram, text, token = "ngrams", n = 4, n_min=1) %>% #, Trigamas, Bigramas y Unigramas
   mutate(ngrama=ngram)  %>%
-  select(UT,ngrama) %>%  
+  select(abstract.UT,ngrama) %>%  
   filter(!nchar(ngrama) < 5) 
 
+View(genera_tokens)
 
 ################
 genera_tokens2 <- genera_tokens %>%
-  count(UT, ngrama) %>%
+  count(abstract.UT, ngrama) %>%
   distinct() %>%
   ungroup()
 
 dtm <- genera_tokens2 %>%
-  cast_dtm(UT, ngrama, n)
+  cast_dtm(abstract.UT, ngrama, n)
 
 bla <- removeSparseTerms(dtm, 0.99)
 rowTotals <- apply(bla , 1, sum) #Find the sum of words in each Document
