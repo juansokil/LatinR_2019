@@ -17,6 +17,9 @@ library(tm)
 #install.packages("ldatuning")
 library(ldatuning)
 library(scales)
+library(Cairo)
+
+
 
 #############Levanta datos#####################3
 base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE)
@@ -119,13 +122,13 @@ plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_with_fr, main=layout,
 
 
 dev.off()
+CairoSVG(file="plotsfinal.svg", width=11, height=8.5, family="Helvetica", pointsize=11)
 set.seed(1991)
 plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_components(min_spanning_tree), main=layout, 
      vertex.size=degree(g)*1.2, vertex.label.cex=0.5,vertex.label.color="black",
      vertex.color=fg$membership, vertex.shape="circle",
      edge.width=E(g)$weight/15) 
-
-
+dev.off()
 
 
 
@@ -159,7 +162,6 @@ genera_tokens <- data_lemmatizada %>%
   select(abstract.UT,ngrama) %>%  
   filter(!nchar(ngrama) < 5) 
 
-View(genera_tokens)
 
 ################
 genera_tokens2 <- genera_tokens %>%
@@ -234,13 +236,8 @@ system.time(
 ap_lda <- LDA(dtm, k = 4, control = list(seed = 1234, alpha = 0.1))
 ap_lda
 
-
-
-
 ap_topics <- tidy(ap_lda, matrix = "beta")
 ap_topics
-
-
 
 
 # visualize the most important terms within each topic
@@ -294,85 +291,5 @@ doc_classes <- td_lda_docs %>%
 # which were we most uncertain about?
 doc_classes %>%
   arrange(gamma)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-####https://www.tidytextmining.com/topicmodeling.html
-#https://cran.r-project.org/web/packages/tidytext/vignettes/tidying_casting.html
-#https://github.com/dgrtwo/tidy-text-mining/blob/master/04-word-combinations.Rmd
-##https://www.datacamp.com/community/tutorials/sentiment-analysis-R
-##https://www.r-bloggers.com/udpipe-version-0-7-for-natural-language-processing-nlp-alongside-tidytext-quanteda-tm/##
-
-
-
-
-
-
-
-
-
-
-
-
-
-####ANALISIS BIBLIOMETRICO####
-#https://cran.r-project.org/web/packages/bibliometrix/vignettes/bibliometrix-vignette.html
-#http://bibliometrix.org/documents/bibliometrix_Report.html
-
-results <- biblioAnalysis(M, sep = ";")  
-options(width=100)
-S <- summary(object = results, k = 10, pause = FALSE)
-plot(x = results, k = 10, pause = FALSE)
-
-NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "authors", sep = ";")
-networkPlot(NetMatrix,  normalize = "salton", weighted=NULL, n = 100, Title = "Authors' Coupling", type = "fruchterman", size=5,size.cex=T,remove.multiple=TRUE,labelsize=0.8,label.n=10,label.cex=F)
-
-
-NetMatrix <- biblioNetwork(M, analysis = "co-citation", network = "references", sep = ";")
-net=networkPlot(NetMatrix, n = 50, Title = "Co-Citation Network", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=FALSE, labelsize=0.7,edgesize = 10, edges.min=5)
-
-
-NetMatrix <- biblioNetwork(M, analysis = "co-occurrences", network = "keywords", sep = ";")
-net=networkPlot(NetMatrix, normalize="association", n = 50, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, labelsize=3,label.cex=TRUE,label.n=30,edges.min=2)
-
-netstat <- networkStat(NetMatrix)
-summary(netstat,k=10)
-
-termExtraction(M, Field = "TI", stemming = FALSE,
-               language = "english", remove.numbers = TRUE, remove.terms = NULL,
-               keep.terms = NULL, synonyms = NULL, verbose = TRUE)
-
-
-
-M <- metaTagExtraction(M, Field = "AU_CO", sep = ";")
-NetMatrix <- biblioNetwork(M, analysis = "collaboration",  network = "countries", sep = ";")
-networkPlot(NetMatrix,  n = dim(NetMatrix)[1], Title = "Country collaboration",type = "sphere", size=10,size.cex=T,edgesize = 1,labelsize=0.6, cluster="none")
-
-
-NetMatrix <- biblioNetwork(M, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", size=10,size.cex=T,edgesize = 3,labelsize=0.6)
 
 
