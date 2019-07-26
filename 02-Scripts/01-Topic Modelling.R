@@ -18,7 +18,7 @@ library(tm)
 library(ldatuning)
 library(scales)
 library(Cairo)
-
+library(data.table)
 
 
 #############Levanta datos#####################3
@@ -27,10 +27,21 @@ base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_201
 #base_completa = head(base_completa, 150)
 #glimpse(base_completa)
 
+#download.file("https://www.dropbox.com/sh/1z68bazk9ptasqo/AAD8iT3B7n9OkRCNTLORz-zWa?dl=1", "base_completa.txt")
+#base_completa = read.csv("base_completa.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE, quote="")
+
+base_completa = read.csv("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", sep='\t', stringsAsFactors=FALSE, header = TRUE,check.names=FALSE)
+base_completa = head(base_completa, 3000)
+
+
+#base_completa = read_csv("base_completa.txt")
+
+
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
-udmodel_english <- udpipe_load_model(file = "../04-Modelos/english-ewt-ud-2.4-190531.udpipe")
+udmodel_english <- udpipe_load_model(file = "./english-ewt-ud-2.4-190531.udpipe")
 #udmodel_english <- udpipe_load_model("C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
+
 
 
 ##############TOKENS#######################
@@ -44,7 +55,7 @@ undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","p
                        "elsevier","the","research","of","with","gender","elsevier","article",
                        "women","social","women's","methods","results","analysis","conclusions",
                        "findings","background","woman","result","examine","method","report",
-                       "explore","suggest")
+                       "explore","suggest", "health")
 
 
 abstract2 <- abstract %>%
@@ -78,6 +89,7 @@ cooc <- cooccurrence(x = subset(x, upos %in% c("NOUN", "ADJ")),
 
 
 wordnetwork <- head(cooc, 100)
+#wordnetwork <- head(cooc, 1000)
 wordnetwork <- graph_from_data_frame(wordnetwork)
 
 g<- simplify(wordnetwork, remove.multiple = TRUE)
@@ -122,9 +134,9 @@ plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_with_fr, main=layout,
 
 
 dev.off()
-CairoSVG(file="plotsfinal.svg", width=11, height=8.5, family="Helvetica", pointsize=11)
+CairoSVG(file="plotsfinal2.svg", width=11, height=8.5, family="Helvetica", pointsize=11)
 set.seed(1991)
-plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_components(min_spanning_tree), main=layout, 
+plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_with_fr, main=layout, 
      vertex.size=degree(g)*1.2, vertex.label.cex=0.5,vertex.label.color="black",
      vertex.color=fg$membership, vertex.shape="circle",
      edge.width=E(g)$weight/15) 
