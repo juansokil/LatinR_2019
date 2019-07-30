@@ -30,10 +30,8 @@ base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_201
 #download.file("https://www.dropbox.com/sh/1z68bazk9ptasqo/AAD8iT3B7n9OkRCNTLORz-zWa?dl=1", "base_completa.txt")
 #base_completa = read.csv("base_completa.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE, quote="")
 
-base_completa = read.csv("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", sep='\t', stringsAsFactors=FALSE, header = TRUE,check.names=FALSE)
-base_completa = head(base_completa, 3000)
-
-
+#base_completa = read.csv("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", sep='\t', stringsAsFactors=FALSE, header = TRUE,check.names=FALSE)
+#base_completa = head(base_completa, 500)
 #base_completa = read_csv("base_completa.txt")
 
 
@@ -51,21 +49,43 @@ abstract <- base_completa %>%
   filter(!is.na(PY) & PY > 2007 & PY < 2019)
 
 data(stop_words)
-undesirable_words <- c("purpose", "objective", "study", "conclusion","gender","published",
+stop_words_domain <- tbl_df(c("purpose", "objective", "study", "conclusion","gender","published",
                        "elsevier","the","research","of","with","gender","elsevier","article",
-                       "women","social","women's","methods","results","analysis","conclusions",
-                       "findings","background","woman","result","examine","method","report",
-                       "explore","suggest", "health")
+                       "social","women's","methods","results","analysis","conclusions",
+                       "findings","background","result","examine","method","report",
+                       "explore","suggest","aim","conclusion","article","univ","na","usa",
+                       "dept","studies","university","research","model","sample","paper")) %>% rename(word = value)
 
+
+frequent_words <- abstract %>%
+  unnest_tokens(word, AB, strip_numeric = TRUE) %>%
+  anti_join(stop_words) %>%
+  anti_join(stop_words_domain) %>%
+  count(word, sort = TRUE) 
+  #filter(n >200)
+
+View(frequent_words)
+
+#frequent_words <- as.list(frequent_words[,1])
+#print(frequent_words)  
+  
 
 abstract2 <- abstract %>%
   unnest_tokens(word, AB, strip_punct =FALSE, strip_numeric = TRUE) %>%
   anti_join(stop_words)  %>% 
-  filter(!word %in% undesirable_words) %>%
+  filter(!word %in% stop_words_domain) %>%
+  #filter(!word %in% frequent_words) %>%
   group_by(UT, PY) %>%
   summarize(text = str_c(word, collapse = " "))
 
+
+
+Diccionario_palabras<- abstract2 %>%
+  unnest_tokens(word, text) %>%
+  count(word, sort = TRUE) 
+
 abstract = full_join(abstract2, abstract, by = c("UT", "PY"))
+
 
 
 ###remuevo objetos###
@@ -84,8 +104,11 @@ glimpse(relacion)
 
 ####ARMAR GRAFOS#####
 cooc <- cooccurrence(x = subset(x, upos %in% c("NOUN", "ADJ")), 
-                     term = "lemma", 
-                     group = c("doc_id", "paragraph_id", "sentence_id"))
+                     term = "lemma", group = "doc_id", skipgram = 10)
+
+
+#                     group = c("doc_id", "paragraph_id", "sentence_id")
+
 
 
 wordnetwork <- head(cooc, 100)
@@ -180,6 +203,7 @@ genera_tokens2 <- genera_tokens %>%
   count(abstract.UT, ngrama) %>%
   distinct() %>%
   ungroup()
+
 
 dtm <- genera_tokens2 %>%
   cast_dtm(abstract.UT, ngrama, n)
