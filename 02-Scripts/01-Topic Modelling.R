@@ -2,9 +2,7 @@
 library(readr)
 library(dplyr)
 library(tidyr)
-library(gender)
 library(stringr)
-library(bibliometrix)
 library(tidyverse)
 library(tidytext)
 library(topicmodels)
@@ -19,32 +17,32 @@ library(scales)
 library(Cairo)
 library(data.table)
 library(LDAvis)
-
-
-
+library(here)
 
 #############LATINR#############
 base_completa = read.csv("https://raw.githubusercontent.com/juansokil/LatinR_2019/master/01-Bases/base_reduce.txt", sep='\t', encoding='latin1', stringsAsFactors=FALSE)
-base_completa = read.csv("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", sep='\t', stringsAsFactors=FALSE, header = TRUE,check.names=FALSE)
+base_completa = read.csv(here("/LatinR_2019/01-Bases/base_completa.txt"), sep='\t', stringsAsFactors=FALSE, header = TRUE,check.names=FALSE)
+
 
 abstract <- base_completa %>% 
   select(UT, PY, AB) %>% 
   filter(!is.na(AB))  %>% 
   filter(!is.na(PY) & PY > 2007 & PY < 2019)
 
+abstract <- head(abstract,10)
 
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
-udmodel_english <- udpipe_load_model(file = "./english-ewt-ud-2.4-190531.udpipe")
+udmodel_english <- udpipe_load_model(file = here("/english-ewt-ud-2.4-190531.udpipe"))
 #udmodel_english <- udpipe_load_model("C:/Users/Juan/Documents/english-ewt-ud-2.3-181115.udpipe")
 
 
 ##############TOKENS#######################
 
 data(stop_words)
-stop_words_domain <- tbl_df(c("purpose", "objective", "study", "conclusion","gender","published",
-                              "elsevier","the","research","of","with","gender","elsevier","article",
-                              "social","women's","methods","results","analysis","conclusions",
+stop_words_domain <- tbl_df(c("purpose", "objective", "study", "conclusion","published",
+                              "elsevier","the","research","of","a","with","article",
+                              "women's","methods","results","analysis","conclusions",
                               "findings","background","result","examine","method","report",
                               "explore","suggest","aim","conclusion","article","univ","na","usa",
                               "dept","studies","university","research","model","sample","paper",
@@ -56,27 +54,33 @@ stop_words_domain <- tbl_df(c("purpose", "objective", "study", "conclusion","gen
 
 
 frequent_words <- abstract %>%
-  unnest_tokens(word, AB, strip_numeric = TRUE) %>%
+  unnest_tokens(output=word, input=AB, strip_numeric = TRUE) %>%
   anti_join(stop_words) %>%
   anti_join(stop_words_domain) %>%
   count(word, sort = TRUE)
 
 
+###LIMPIA LAS ORACIONES DE PUNTUACIONES#####
 abstract2 <- abstract %>%
-  unnest_tokens(word, AB, strip_punct =FALSE, strip_numeric = TRUE) %>%
+  unnest_tokens(output=word, input=AB, strip_punct =TRUE, token = "sentences") %>%
+  group_by(UT, PY) %>%
+  summarize(text = str_c(word, collapse = ". "))
+
+
+###AHORA LIMPIA  LAS STOPWORDS#####
+abstract3 <- abstract2 %>%
+  unnest_tokens(output=word, input=text, strip_punct =FALSE, strip_numeric = TRUE) %>%
   anti_join(stop_words)  %>% 
   anti_join(stop_words_domain) %>%
+  filter(!nchar(word) < 3) %>%
   group_by(UT, PY) %>%
   summarize(text = str_c(word, collapse = " "))
 
-
-abstract = full_join(abstract2, abstract, by = c("UT", "PY"))
+abstract = full_join(abstract3, abstract, by = c("UT", "PY"))
 
 ###remuevo objetos###
-rm(abstract2, stop_words, base_completa)
+rm(abstract2, abstract3, stop_words, base_completa, stop_words_domain, frequent_words)
 
-#https://bnosac.github.io/udpipe/docs/doc6.html
-#http://ufal.mff.cuni.cz/udpipe/users-manual
 
 
 
@@ -84,16 +88,19 @@ rm(abstract2, stop_words, base_completa)
 x <- udpipe_annotate(udmodel_english, x = abstract$text, trace = TRUE, doc_id = abstract$UT)
 x <- as.data.frame(x)
 
+
 data_lemmatizada <- x %>% 
   group_by(doc_id) %>% 
   summarise(text = str_c(lemma, collapse = " "))
 
 genera_tokens <- data_lemmatizada %>%
-  unnest_tokens(ngram, text, token = "ngrams", n = 4, n_min=1) %>% #, Trigamas, Bigramas y Unigramas
+  unnest_tokens(output=ngram, input=text, token = "ngrams", n = 6, n_min=1) %>%
   mutate(ngrama=ngram)  %>%
   select(doc_id,ngrama) %>%  
   filter(!nchar(ngrama) < 5) 
 
+
+#https://www.tidytextmining.com/ngrams.html
 
 ###EN ESTE PUNTO GENERO TODOS LOS TOKENS POR REGISTRO#############
 ####DEBERIA TENER 3 MIL DOC_ID DISTINTOS
@@ -102,19 +109,29 @@ genera_tokens2 <- genera_tokens %>%
   distinct() %>%
   ungroup() 
 
+
 length(unique(genera_tokens2$doc_id))
 
 conteo_palabras <- genera_tokens2 %>%
   group_by(ngrama) %>%
-  count(ngrama, sort = TRUE) %>%
-  filter(n >5)
+  count(ngrama, sort = TRUE)
+
+View(conteo_palabras)
+
+#https://www.tidytextmining.com/ngrams.html
+
+#woman (7505 - 51,9%)
+#women (1386
+#health (3165 - 21,8%)
+#female (2898- 20,0%)
+#14465
 
 ##############FILTRO DE PALABRAS MUY FRECUENTES, APARECEN EN MAS DEL 20% de los papers##################
 genera_tokens3 <- genera_tokens2 %>%
   filter(ngrama != 'woman') %>%
   filter(ngrama != 'women') %>%
-  filter(ngrama != 'health') 
-
+  filter(ngrama != 'health') %>% 
+  filter(ngrama != 'female')
 
 #write.csv(conteo_palabras, 'palabras.csv')
 
@@ -122,19 +139,19 @@ genera_tokens3 <- genera_tokens2 %>%
 
 dtm <- genera_tokens3 %>%
   cast_dtm(document=doc_id, term=ngrama, value=n)
-
 dtm
 
-dtm_not_sparce <- removeSparseTerms(dtm, sparse = .99)
+dtm_not_sparce <- removeSparseTerms(dtm, sparse = .999)
 dtm_not_sparce
+
+#dtm_not_sparce <- removeSparseTerms(dtm, sparse = .99)
+#dtm_not_sparce
 
 rowTotals <- apply(dtm_not_sparce , 1, sum) #Find the sum of words in each Document
 dtm_final   <- dtm_not_sparce[rowTotals> 0, ]           #remove all docs without words
 glimpse(dtm_final)
-dtm_final$dimnames$Terms
 
-
-
+View(as.data.frame(dtm_final$dimnames$Terms))
 
 
 
@@ -172,9 +189,6 @@ system.time(
     )
     )
 )
-
-
-
 
 
 
