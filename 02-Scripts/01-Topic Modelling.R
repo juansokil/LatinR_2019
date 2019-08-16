@@ -26,10 +26,17 @@ base_completa = read.csv(here("/LatinR_2019/01-Bases/base_completa.txt"), sep='\
 
 abstract <- base_completa %>% 
   select(UT, PY, AB) %>% 
-  filter(!is.na(AB))  %>% 
-  filter(!is.na(PY) & PY > 2007 & PY < 2019)
+  #filter(!is.na(AB))  %>% 
+  filter(PY %in% c(2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018))
 
-abstract <- head(abstract,10)
+
+
+abstract_authors <- base_completa %>% 
+  filter(PY %in% c(2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018))
+
+
+View(abstract_authors)
+
 
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
@@ -83,7 +90,6 @@ rm(abstract2, abstract3, stop_words, base_completa, stop_words_domain, frequent_
 
 
 
-
 ############LEMMATIZACION######
 x <- udpipe_annotate(udmodel_english, x = abstract$text, trace = TRUE, doc_id = abstract$UT)
 x <- as.data.frame(x)
@@ -114,24 +120,32 @@ length(unique(genera_tokens2$doc_id))
 
 conteo_palabras <- genera_tokens2 %>%
   group_by(ngrama) %>%
-  count(ngrama, sort = TRUE)
+  count(ngrama, sort = TRUE) %>%
+  filter(n >=5)
 
-View(conteo_palabras)
+
+conteo_palabras <- conteo_palabras  %>%
+  filter(n >=5)
+
+
+head(conteo_palabras)
 
 #https://www.tidytextmining.com/ngrams.html
-
-#woman (7505 - 51,9%)
-#women (1386
-#health (3165 - 21,8%)
-#female (2898- 20,0%)
+#Total 14465
+#woman (7557 - 52,2%)
+#gender (7358 - 50,8%)
+#social (3996 - 27,6%)
+#womens (3215 - 22,2%)
+#health (3086 - 21,3%)
 #14465
 
 ##############FILTRO DE PALABRAS MUY FRECUENTES, APARECEN EN MAS DEL 20% de los papers##################
 genera_tokens3 <- genera_tokens2 %>%
   filter(ngrama != 'woman') %>%
-  filter(ngrama != 'women') %>%
+  filter(ngrama != 'womens') %>%
+  filter(ngrama != 'gender') %>%
   filter(ngrama != 'health') %>% 
-  filter(ngrama != 'female')
+  filter(ngrama != 'social')
 
 #write.csv(conteo_palabras, 'palabras.csv')
 
@@ -150,10 +164,6 @@ dtm_not_sparce
 rowTotals <- apply(dtm_not_sparce , 1, sum) #Find the sum of words in each Document
 dtm_final   <- dtm_not_sparce[rowTotals> 0, ]           #remove all docs without words
 glimpse(dtm_final)
-
-View(as.data.frame(dtm_final$dimnames$Terms))
-
-
 
 
 ####LDA TUNING#####
@@ -191,10 +201,15 @@ system.time(
 )
 
 
+###remuevo objetos###
+
+
+
 
 ####LDA# SE PUEDE GENERAR CON EL NUMERO OPTIMO################
-ap_lda <- LDA(dtm_final, k = 6, control = list(seed = 1234, alpha = 0.1))
+ap_lda <- LDA(dtm_final, k = 100, control = list(seed = 1234, alpha = 0.1))
 ap_lda
+
 
 ap_topics <- tidy(ap_lda, matrix = "beta")
 ap_topics
@@ -249,6 +264,22 @@ doc_classes <- td_lda_docs %>%
 # which were we most uncertain about?
 doc_classes %>%
   arrange(gamma)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ####ANALISIS DE GRAFOS#####
