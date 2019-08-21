@@ -29,13 +29,8 @@ abstract <- base_completa %>%
   #filter(!is.na(AB))  %>% 
   filter(PY %in% c(2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018))
 
-
-
 abstract_authors <- base_completa %>% 
   filter(PY %in% c(2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018))
-
-
-View(abstract_authors)
 
 
 ################Defino el modelo UDPIPE##############
@@ -55,7 +50,7 @@ stop_words_domain <- tbl_df(c("purpose", "objective", "study", "conclusion","pub
                               "dept","studies","university","research","model","sample","paper",
                               'abstract', 'methodology', 'materials', 'discussion',  'examine','emerald', 'group', 'publishing', 
                               'limit','limitations','implications', 'author',  'copyright',  'publication',  'publications', 
-                              'sage',  'taylor', 'francis', 'franci', 'informa', 'springer',  'science', 'llc', 'â',
+                              'sage',  'taylor', 'francis', 'franci', 'informa', 'springer',  'science', 'llc', 'Ã¢',
                               'reported', 'journal', 'related', 'de', 'la', 'literature','qualitative', 'discussed', 'authors', 'data', 'examine', 'examined','experience', 'argue', 'aim','focus','focused','context','theory','measure', 'measured', 'interview'
 )) %>% rename(word = value)
 
@@ -206,13 +201,27 @@ system.time(
 
 
 
-####LDA# SE PUEDE GENERAR CON EL NUMERO OPTIMO################
-ap_lda <- LDA(dtm_final, k = 100, control = list(seed = 1234, alpha = 0.1))
+####LDA#####
+
+
+alpha <- 0.1
+burnin <- 1000
+iter <- 1000
+keep <- 10
+k<-4 
+
+ap_lda <- LDA(dtm_final, k, method = "Gibbs", control = list(seed=1977, burnin = burnin, iter = iter, keep = keep))
 ap_lda
 
+################BETA######################
 
-ap_topics <- tidy(ap_lda, matrix = "beta")
-ap_topics
+## In this case I am returning the top 30 terms per topic.
+top.terms <- as.data.frame(topicmodels::terms(ap_lda, 30), stringsAsFactors = FALSE)
+
+ap_topics <- tidy(ap_lda, matrix = "beta") 
+beta_spread <- ap_topics %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  spread(topic, beta) 
 
 
 ap_important_terms <- ap_topics %>%
@@ -223,7 +232,6 @@ ggplot(ap_important_terms, aes(term, beta)) +
   geom_bar(stat = "identity") +
   facet_wrap(~ topic, scales = "free") +
   theme(axis.text.x = element_text(angle = 90, size = 15))
-
 
 # visualize the top terms within each topic
 ap_top_terms <- ap_topics %>%
@@ -240,21 +248,20 @@ ap_top_terms %>%
   coord_flip()
 
 
-################BETA#############
-
-
-beta_spread <- ap_topics %>%
-  mutate(topic = paste0("topic", topic)) %>%
-  spread(topic, beta) %>%
-  filter(topic1 > .001 | topic2 > .001) %>%
-  mutate(log_ratio = log2(topic2 / topic1))
-
-beta_spread
 
 
 
-# get classification of each document
+################GAMMA / THETA ######################
+
+
+
+
+
+
 td_lda_docs <- tidy(ap_lda, matrix = "gamma")
+gamma_spread <- td_lda_docs %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  spread(topic, gamma) 
 
 doc_classes <- td_lda_docs %>%
   group_by(document) %>%
@@ -264,6 +271,48 @@ doc_classes <- td_lda_docs %>%
 # which were we most uncertain about?
 doc_classes %>%
   arrange(gamma)
+
+
+##  per document probabilities of the topics
+theta <- as.data.frame(topicmodels::posterior(ap_lda)$topics)
+head(theta[1:4])
+theta <- tibble::rownames_to_column(theta, "UT")
+
+
+####Arma base final###
+completo <- abstract %>% left_join(theta)
+completo <- completo %>% left_join(doc_classes, by = c("UT"="document") )
+
+write.csv(completo, 'base_topicos.csv')
+
+
+
+
+
+#################LDA VIS##################
+
+#' Transform Model Output for Use with the LDAvis Package
+topicmodels2LDAvis <- function(x, ...){
+  post <- topicmodels::posterior(x)
+  if (ncol(post[["topics"]]) < 3) stop("The model must contain > 2 topics")
+  mat <- x@wordassignments
+  LDAvis::createJSON(
+    phi = post[["terms"]], 
+    theta = post[["topics"]],
+    vocab = colnames(post[["terms"]]),
+    doc.length = slam::row_sums(mat, na.rm = TRUE),
+    term.frequency = slam::col_sums(mat, na.rm = TRUE)
+  )
+}
+
+
+
+###Visualizar####
+serVis(topicmodels2LDAvis(ap_lda))
+
+topicmodels::posterior(ap_lda)
+
+
 
 
 
