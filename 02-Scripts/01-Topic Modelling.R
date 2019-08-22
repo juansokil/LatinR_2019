@@ -17,6 +17,7 @@ library(scales)
 library(Cairo)
 library(data.table)
 library(LDAvis)
+library(gistr)
 library(here)
 
 #############LATINR#############
@@ -213,6 +214,14 @@ k<-4
 ap_lda <- LDA(dtm_final, k, method = "Gibbs", control = list(seed=1977, burnin = burnin, iter = iter, keep = keep))
 ap_lda
 
+
+###Save Model###
+#saveRDS(ap_lda, file = "./ap_lda.rda")
+
+###Load Model###
+#ap_lda <- readRDS("C:/Users/Juan/Dropbox/LatinR_2019/04-Modelos/ap_lda.rda")
+#glimpse(ap_lda)
+
 ################BETA######################
 
 ## In this case I am returning the top 30 terms per topic.
@@ -287,8 +296,6 @@ write.csv(completo, 'base_topicos.csv')
 
 
 
-
-
 #################LDA VIS##################
 
 #' Transform Model Output for Use with the LDAvis Package
@@ -308,12 +315,7 @@ topicmodels2LDAvis <- function(x, ...){
 
 
 ###Visualizar####
-serVis(topicmodels2LDAvis(ap_lda))
-
-topicmodels::posterior(ap_lda)
-
-
-
+serVis(topicmodels2LDAvis(ap_lda),  out.dir = 'vis', open.browser = interactive())
 
 
 
