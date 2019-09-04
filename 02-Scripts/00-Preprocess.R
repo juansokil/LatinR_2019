@@ -109,3 +109,93 @@ base_completa %>%
 table(base_completa$author_female, base_completa$PY)
 table(base_completa$author_male, base_completa$PY)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################################################
+
+
+
+
+base_completa <- read_delim("C:/Users/Juan/Dropbox/LatinR_2019/01-Bases/base_completa.txt", 
+                            "\t", escape_double = FALSE, trim_ws = TRUE)
+
+
+
+
+###Genera base autores###
+autores <- base_completa %>% 
+  select(UT, PY, AF) %>% 
+  separate_rows(AF, sep=';')  
+
+View(autores)
+
+autores <- separate(autores, AF, into=c("apellido", "nombre"), sep=',', remove = FALSE)
+autores$nombre <- str_trim(autores$nombre, side = c("both"))
+autores <- separate(autores, nombre, into=c("primer_nombre", "segundo_nombre"), sep=' ', remove = FALSE)
+autores$primer_nombre <- str_trim(autores$primer_nombre, side = c("both"))
+
+
+gender_df <- gender(autores$primer_nombre)
+
+authors <-   unique(left_join(autores, gender_df, by = c("primer_nombre" = "name")))
+
+View(authors)
+
+
+
+recuento = authors %>% 
+  select (UT, PY, AF, gender) %>% 
+  group_by (PY) %>% 
+  summarize (n_distinct(UT))
+
+
+
+
+
+
+authors %>% 
+  select (UT, PY, AF, gender)
+
+bla = authors %>% 
+  group_by (AF) %>% 
+  filter (!is.na(gender)) %>% 
+  summarize (n_distinct(UT), max(gender))
+
+
+
+
+####ARMAR GRAFOS#####
+cooc <- cooccurrence(x = authors, 
+                     term = "AF", 
+                     group = "UT")
+
+
+
+wordnetwork <- head(cooc, 700)
+
+View(wordnetwork)
+wordnetwork <- graph_from_data_frame(wordnetwork)
+
+g<- simplify(wordnetwork, remove.multiple = TRUE)
+set.seed(1982)
+plot.igraph(g, layout=layout_with_fr,vertex.label.color="black", vertex.shape="circle",
+            edge.width=E(g)$weight*0.01, vertex.size=degree(g), vertex.label.cex=0.1)
+
+
+
