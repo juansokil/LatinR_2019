@@ -16,10 +16,31 @@ library(Cairo)
 base_analisis <- read_csv("LatinR_2019/01-Bases/base_topicos.csv")
 
 
+View(base_analisis)
+
+paises_colaboracion <- read_delim("C:/Users/jsokil/Desktop/paises_colaboracion.txt", "\t", escape_double = FALSE, trim_ws = TRUE)
+
+paises_colaboracion2 <- unique(paises_colaboracion)
+
+ 
+listado <- paises_colaboracion2 %>%
+  group_by(subcontinente)  %>%
+  summarize(cantidad=n_distinct(ut))  %>%
+  arrange(desc(cantidad))
+
+
+View(listado)
+
+write.csv(base_analisis, 'paises.csv')
+
+
 topic22 <- base_analisis %>%
   filter(topic == 22) %>%
   select(UT, PY, text,topic)
 
+
+
+View(paises_colaboracion)
 
 ################Defino el modelo UDPIPE##############
 #udmodel <- udpipe_download_model(language = "english")
