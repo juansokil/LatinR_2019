@@ -19,8 +19,9 @@ library(udpipe)
 library(igraph)
 library(ggraph)
 library(ggplot2)
-
-
+library(RColorBrewer)
+#install.packages("comato")
+library(comato)
 
 ###Carga de Archivo###
 #completo <- readFiles("https://raw.githubusercontent.com/juansokil/womens_studies/master/00-Csv/plain.txt")
@@ -33,8 +34,12 @@ M <- completo
 #completo <- convert2df(completo, dbsource = "scopus", format = "bibtex")
 
 ###Filter###
-base_completa = unique(completo %>%
-                         select(UT, AF, TI, SO, AB, C1, PY, WC))
+#base_completa = unique(completo %>%
+#                         select(UT, AF, TI, SO, AB, C1, PY, WC))
+
+
+base_completa <- read_delim("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", 
+                            "\t", escape_double = FALSE, trim_ws = TRUE)
 
 
 ###Genera base autores###
@@ -42,7 +47,6 @@ autores <- base_completa %>%
   select(UT, PY, AF) %>% 
   separate_rows(AF, sep=';')  
 
-View(autores)
 
 autores <- separate(autores, AF, into=c("apellido", "nombre"), sep=',', remove = FALSE)
 autores$nombre <- str_trim(autores$nombre, side = c("both"))
@@ -55,9 +59,9 @@ authors2 <- authors[-1]
 authors_unique <- unique(authors2)
 
 
-tabla <- authors_unique %>%
-  group_by(PY, gender) %>%
-  count()
+#tabla <- authors_unique %>%
+#  group_by(PY, gender) %>%
+#  count()
 
 #####################PARTICIPACION##################
 ###### AUTORES TOTALES######
@@ -113,89 +117,52 @@ table(base_completa$author_male, base_completa$PY)
 
 
 
+###############Insumos para grafos##################
+
+###Genera Nodos###
+nodos <- authors %>% group_by(AF) %>% 
+  filter (!is.na(gender)) %>% summarise(gender = max(gender))
+
+###Genera Aristas###
+authors2 = authors %>% filter (!is.na(gender)) 
+aristas <- cooccurrence(x = authors2, term = "AF", group = c("UT"))
+
+###Arma grafo###
+grafo <- graph_from_data_frame(aristas, directed=FALSE, vertices=nodos)
+g<- simplify(grafo, remove.multiple = TRUE)
+g <- set_vertex_attr(g, "Grado", value = degree(g))
+str(vertex.attributes(g))
+
+
+
+#####GUARDA EL GRAFO#####
+write_graph(g, './grafo_gephi.gml', format = "gml")
+g <- read_graph('./grafo_gephi.gml', format = "gml")
 
 
 
 
+####Minimum Spanning Tree###
+min_spanning_tree <- mst(g, weights = E(g)$weight)
+#subgraph#
+min_spanning_tree <- induced.subgraph(min_spanning_tree, which(degree(min_spanning_tree) >3))
+
+#pathfinder(g)
 
 
+colores_genero <- c("#D79910", "#1B9E70")
+
+set.seed(1977)
+plot.igraph(min_spanning_tree, layout=layout_with_fr(min_spanning_tree, niter=100),vertex.color=colores_genero[as.numeric(as.factor(vertex_attr(min_spanning_tree, "gender")))], vertex.shape="circle",
+            edge.width=E(min_spanning_tree)$weight*10, vertex.size=degree(min_spanning_tree)*10, vertex.label=NA)
+
+set.seed(1977)
+plot.igraph(min_spanning_tree, layout=layout_randomly,vertex.color=colores_genero[as.numeric(as.factor(vertex_attr(min_spanning_tree, "gender")))], vertex.shape="circle",
+            edge.width=E(min_spanning_tree)$weight*0.1, vertex.size=degree(min_spanning_tree)*5, vertex.label=NA)
+
+set.seed(1977)
+plot.igraph(min_spanning_tree, layout=layout_with_drl,vertex.color=colores_genero[as.numeric(as.factor(vertex_attr(min_spanning_tree, "gender")))], vertex.shape="circle",
+            edge.width=E(min_spanning_tree)$weight*0.1, vertex.size=degree(min_spanning_tree)*5, vertex.label=NA)
 
 
-
-
-
-
-
-
-################################################
-
-
-
-
-base_completa <- read_delim("C:/Users/Juan/Dropbox/LatinR_2019/01-Bases/base_completa.txt", 
-                            "\t", escape_double = FALSE, trim_ws = TRUE)
-
-
-
-
-###Genera base autores###
-autores <- base_completa %>% 
-  select(UT, PY, AF) %>% 
-  separate_rows(AF, sep=';')  
-
-View(autores)
-
-autores <- separate(autores, AF, into=c("apellido", "nombre"), sep=',', remove = FALSE)
-autores$nombre <- str_trim(autores$nombre, side = c("both"))
-autores <- separate(autores, nombre, into=c("primer_nombre", "segundo_nombre"), sep=' ', remove = FALSE)
-autores$primer_nombre <- str_trim(autores$primer_nombre, side = c("both"))
-
-
-gender_df <- gender(autores$primer_nombre)
-
-authors <-   unique(left_join(autores, gender_df, by = c("primer_nombre" = "name")))
-
-View(authors)
-
-
-
-recuento = authors %>% 
-  select (UT, PY, AF, gender) %>% 
-  group_by (PY) %>% 
-  summarize (n_distinct(UT))
-
-
-
-
-
-
-authors %>% 
-  select (UT, PY, AF, gender)
-
-bla = authors %>% 
-  group_by (AF) %>% 
-  filter (!is.na(gender)) %>% 
-  summarize (n_distinct(UT), max(gender))
-
-
-
-
-####ARMAR GRAFOS#####
-cooc <- cooccurrence(x = authors, 
-                     term = "AF", 
-                     group = "UT")
-
-
-
-wordnetwork <- head(cooc, 700)
-
-View(wordnetwork)
-wordnetwork <- graph_from_data_frame(wordnetwork)
-
-g<- simplify(wordnetwork, remove.multiple = TRUE)
-set.seed(1982)
-plot.igraph(g, layout=layout_with_fr,vertex.label.color="black", vertex.shape="circle",
-            edge.width=E(g)$weight*0.01, vertex.size=degree(g), vertex.label.cex=0.1)
-
-
-
+dev.off()
