@@ -96,3 +96,56 @@ plot(min_spanning_tree, edge.arrow.mode=0, layout=layout_with_fr, main=layout,
      vertex.color=fg$membership, vertex.shape="circle",
      edge.width=E(g)$weight/15) 
 dev.off()
+
+
+
+
+
+
+
+
+base_completa <- read_delim("C:/Users/jsokil/Documents/LatinR_2019/01-Bases/base_completa.txt", 
+                            "\t", escape_double = FALSE, trim_ws = TRUE)
+
+
+View(base_completa)
+###Genera base autores###
+autores <- base_completa %>% 
+  select(UT, PY, AF) %>% 
+  separate_rows(AF, sep=';')  
+
+View(autores)
+
+autores <- separate(autores, AF, into=c("apellido", "nombre"), sep=',', remove = FALSE)
+autores$nombre <- str_trim(autores$nombre, side = c("both"))
+autores <- separate(autores, nombre, into=c("primer_nombre", "segundo_nombre"), sep=' ', remove = FALSE)
+autores$primer_nombre <- str_trim(autores$primer_nombre, side = c("both"))
+
+gender_df <- gender(autores$primer_nombre)
+authors <-   unique(left_join(autores, gender_df, by = c("primer_nombre" = "name")))
+authors2 <- authors[-1]
+authors_unique <- unique(authors2)
+
+
+###############Insumos para grafos##################
+
+###Genera Nodos###
+nodos <- authors %>% group_by(AF) %>% 
+  filter (!is.na(gender)) %>% summarise(gender = max(gender))
+
+###Genera Aristas###
+authors2 = authors %>% filter (!is.na(gender)) 
+aristas <- cooccurrence(x = authors2, term = "AF", group = c("UT"))
+
+###Arma grafo###
+grafo <- graph_from_data_frame(aristas, directed=FALSE, vertices=nodos)
+g<- simplify(grafo, remove.multiple = TRUE)
+g <- set_vertex_attr(g, "Grado", value = degree(g))
+str(vertex.attributes(g))
+
+
+
+#####GUARDA EL GRAFO#####
+write_graph(g, './grafo_gephi.gml', format = "gml")
+g <- read_graph('./grafo_gephi.gml', format = "gml")
+
