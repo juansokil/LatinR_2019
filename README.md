@@ -1,4 +1,4 @@
-## ¿Quienes investigan sobre género?
+## ¿Quienes investigan sobre género? (y que)
 
  Analizar la producción científica de estudios de género a nivel mundial para responder a una serie de interrogantes: 
 
@@ -9,4 +9,7 @@
 
 
 
--¿Que temas investigan las mujeres? ¿Son los mismos que los hombres?
+-¿Que temas se investigan en los estudios de genero? ¿que investigan las mujeres? ¿Son los mismos que los hombres?
+
+![alt text](https://github.com/juansokil/LatinR_2019/blob/master/03-Resultados/topicos.png)
+
