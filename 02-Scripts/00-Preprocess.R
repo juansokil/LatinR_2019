@@ -116,32 +116,6 @@ table(base_completa$author_male, base_completa$PY)
 
 
 
-
-###############Insumos para grafos##################
-
-###Genera Nodos###
-nodos <- authors %>% group_by(AF) %>% 
-  filter (!is.na(gender)) %>% summarise(gender = max(gender))
-
-###Genera Aristas###
-authors2 = authors %>% filter (!is.na(gender)) 
-aristas <- cooccurrence(x = authors2, term = "AF", group = c("UT"))
-
-###Arma grafo###
-grafo <- graph_from_data_frame(aristas, directed=FALSE, vertices=nodos)
-g<- simplify(grafo, remove.multiple = TRUE)
-g <- set_vertex_attr(g, "Grado", value = degree(g))
-str(vertex.attributes(g))
-
-
-
-#####GUARDA EL GRAFO#####
-write_graph(g, './grafo_gephi.gml', format = "gml")
-g <- read_graph('./grafo_gephi.gml', format = "gml")
-
-
-
-
 ####Minimum Spanning Tree###
 min_spanning_tree <- mst(g, weights = E(g)$weight)
 #subgraph#
