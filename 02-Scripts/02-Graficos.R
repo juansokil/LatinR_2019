@@ -8,7 +8,7 @@ library(igraph)
 
 
 # how to create a dataframe in r
-base <- data.frame ('Año'=2008:2018, 
+base <- data.frame ('AÃ±o'=2008:2018, 
 'Mujeres_Total'=      as.double(c(0.661,  0.672,  0.682,  0.689,  0.681,  0.685,  0.679,  0.660,  0.680,  0.666,  0.676)),
 'Hombres_Total' =     as.double(c(0.339,  0.328,  0.318,  0.311,  0.319,  0.315,  0.321,  0.340,  0.320,  0.334,  0.324)),
 'Mujeres_Completos' = as.double(c(0.685,  0.693,  0.701,  0.709,  0.707,  0.708,  0.706,  0.681,  0.705,  0.685,  0.696)),
@@ -24,9 +24,9 @@ base <- data.frame ('Año'=2008:2018,
 
 ###Autores###
 base %>%
-   select(Año, Mujeres_Completos, Hombres_Completos) %>%
-   gather(key = segmento, value = porcentaje, -c(Año)) %>%
-   ggplot(aes(Año, porcentaje, group=segmento, color=segmento, fill=segmento)) +
+   select(AÃ±o, Mujeres_Completos, Hombres_Completos) %>%
+   gather(key = segmento, value = porcentaje, -c(AÃ±o)) %>%
+   ggplot(aes(AÃ±o, porcentaje, group=segmento, color=segmento, fill=segmento)) +
    geom_bar(stat='identity', alpha=0.8) +
    scale_fill_manual(values = c("darkgreen","orange")) +
    scale_y_continuous(labels = scales::percent, limits = c(0,1))  + 
@@ -34,12 +34,12 @@ base %>%
 
 
 
-###Participación###
+###ParticipaciÃ³n###
 
 base%>%
-   select(Año, Autoras, Autores) %>%
-   gather(key = segmento, value = porcentaje, -c(Año)) %>%
-   ggplot(aes(Año, porcentaje, group=segmento, color=segmento)) +
+   select(AÃ±o, Autoras, Autores) %>%
+   gather(key = segmento, value = porcentaje, -c(AÃ±o)) %>%
+   ggplot(aes(AÃ±o, porcentaje, group=segmento, color=segmento)) +
    geom_line(alpha=0.6, size=3) + geom_point(size=5, alpha=0.8) +
    scale_colour_manual(values = c("darkgreen","orange")) +
    scale_y_continuous(labels = scales::percent, limits = c(0,1))  + 
@@ -47,16 +47,28 @@ base%>%
 
 
 
+
 ###Coautoria###
-base %>%
-   select(Año, Co_Mujeres, Co_Compartido, Co_Hombres) %>%
-   gather(key = segmento, value = porcentaje, -c(Año)) %>%
-   ggplot(aes(Año, porcentaje, group=segmento, color=segmento, fill=segmento)) +
-   geom_bar(stat='identity', alpha=0.8) +
-   scale_fill_manual(values = c("grey","darkgreen","orange")) +
+base2 = base %>%
+   select(AÃ±o, Co_Mujeres, Co_Compartido, Co_Hombres) %>%
+   gather(key = segmento, value = porcentaje, -c(AÃ±o)) 
+  
+base2$segmento   <- factor(base2$segmento, 
+          levels = c("Co_Hombres",
+                     "Co_Compartido",
+                     "Co_Mujeres"))
+
+
+base2 %>%
+   ggplot(aes(AÃ±o, porcentaje, group=segmento, color=segmento, fill=segmento)) +
+   geom_bar(stat= 'identity', position='fill', alpha=0.8) +
+   scale_fill_manual(values = c("darkgreen","grey","orange")) +
    scale_y_continuous(labels = scales::percent, limits = c(0,1))  +  
    scale_x_discrete(limits = c(2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018)) +
    coord_flip()
+
+
+
 
 
 
