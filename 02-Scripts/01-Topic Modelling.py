@@ -4,7 +4,7 @@ Created on Sat Oct 26 15:08:11 2019
 
 @author: Juan
 """
-
+from pyLDAvis import gensim
 import pandas as pd
 
 # spacy for lemmatization
@@ -27,8 +27,10 @@ import pickle
 
 
 
-base_genero = pd.read_csv("C:/Users/Juan/Dropbox/LatinR_2019/01-Bases/base_completa_reducida.txt", sep='\t', encoding='utf-8')
-base_genero=base_genero.head(100)
+base_genero = pd.read_csv("../01-Bases/base_completa_reducida.txt", sep='\t', encoding='utf-8')
+
+
+print(len(base_genero))
 
 
 #pasa a minuscula
@@ -208,11 +210,91 @@ base_genero = base_genero.drop(['AB', 'data_lemmatized', 'data_lemmatized_stopwo
 
 corpus=bow
 
-base_genero.to_csv('C:/Users/Juan/Dropbox/LatinR_2019/01-Bases/base_completa_lda.txt',  header=True, sep='\t', encoding='utf-8', line_terminator='\n')
+base_genero.to_csv('../01-Bases/base_completa_lda.txt',  header=True, sep='\t', encoding='utf-8', line_terminator='\n')
 
 ###Guardar datos####
-pickle.dump(id2word, open("C:/Users/Juan/Dropbox/LatinR_2019/04-Modelos/dictionary.pkl", "wb"))
-pickle.dump(bow, open('C:/Users/Juan/Dropbox/LatinR_2019/04-Modelos/corpus.pkl', 'wb'))
+pickle.dump(id2word, open("../04-Modelos/dictionary.pkl", "wb"))
+pickle.dump(bow, open('../04-Modelos/corpus.pkl', 'wb'))
+
+
+import numpy as np
+
+import logging
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+
+
+np.random.seed(1977)
+num_topics=100
+eta=(200/len(id2word))
+
+#passes: Number of passes through the entire corpus
+passes=10
+### Iterations###
+iterations=1000
+
+lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus,id2word=id2word,num_topics=num_topics,random_state=100, iterations=iterations, passes=passes, alpha='auto', eta=eta)
+
+
+###Save LDA model####
+pickle.dump(lda_model, open("../04-Modelos/lda_model.pkl", "wb"))
+
+###Chequeo que se haya guardado bien###
+lda_model2 = pickle.load(open("../04-Modelos/lda_model.pkl", "rb"))
+
+print (lda_model2.print_topics())
+
+
+####lambda## aca puedo obtener la probabilidad de cada palabra para cada topico
+topics_terms = lda_model.state.get_lambda() 
+#convert estimates to probability (sum equals to 1 per topic)
+topics_terms_proba = np.apply_along_axis(lambda x: x/x.sum(),1,topics_terms)
+
+
+
+###Hago un archivo con el total del diccionario
+top_words_per_topic = []
+for t in range(lda_model.num_topics):
+    top_words_per_topic.extend([(t, ) + x for x in lda_model.show_topic(t, topn = len(id2word))])
+
+#pd.DataFrame(top_words_per_topic, columns=['Topic', 'Word', 'P']).to_csv("../resultados/total_words.csv")
+top_words=pd.DataFrame(top_words_per_topic, columns=['Topic', 'Word', 'P'])
+
+
+#############ARMA TOPICOS - PROBABILIDADES#####
+lda_model.n_topics=num_topics
+topicnames = ["Topic" + str(i) for i in range(lda_model.n_topics)]
+rango=len(corpus)
+docnames = ["Doc" + str(i) for i in range(rango)]
+
+
+#####Get document - topic values
+theta, _ = lda_model.inference(corpus)
+theta /= theta.sum(axis=1)[:, None]
+
+##Trae el ID##
+series = pd.Series(base_genero['id'])
+
+
+df_document_topic = pd.DataFrame(np.round(theta,3), columns=topicnames, index=series)
+dominant_topic = np.argmax(df_document_topic.values, axis=1)
+df_document_topic['dominant_topic'] = dominant_topic
+
+df_document_topic=df_document_topic.reset_index()
+
+
+df_topic_distribution = df_document_topic['dominant_topic'].value_counts().reset_index(name="Num Documents")
+df_topic_distribution.columns = ['Topic Num', 'Num Documents']
+df_topic_distribution.head()
+
+
+base_genero.reset_index()
+df_document_topic.reset_index()
+
+df_final = pd.concat([base_genero, df_document_topic], ignore_index=False, axis=1 )
+df_final.head()
+
+df_final.to_csv('../01-Bases/base_completa.csv')
+
 
 
 
@@ -225,6 +307,7 @@ d = id2word
 c = corpus
 lda = lda_model
 
+
 # Enable logging for gensim - optional
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.ERROR)
 warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -232,7 +315,7 @@ warnings.filterwarnings("ignore",category=DeprecationWarning)
 
 vis = pyLDAvis.gensim.prepare(lda, c, d, sort_topics=False)
 ####save LDA davis####
-pyLDAvis.save_html(vis,'vis_gensim.html')
+pyLDAvis.save_html(vis,'../03-Resultados/vis_gensim.html')
 
 
 
@@ -241,5 +324,6 @@ posiciones=vis[0]
 
 
 datos_tsne['Relevance']= (datos_tsne['loglift']*0.4) + (datos_tsne['logprob']*0.6)  
-datos_tsne.to_csv('../resultados/datos_tsne.csv',  header=True, sep='\t', encoding='latin1')
-posiciones.to_csv('../resultados/posiciones.csv',  header=True, sep='\t', encoding='latin1')
+datos_tsne.to_csv('../03-Resultados/datos_tsne.csv',  header=True, sep='\t', encoding='latin1')
+posiciones.to_csv('../03-Resultados/posiciones.csv',  header=True, sep='\t', encoding='latin1')
+
