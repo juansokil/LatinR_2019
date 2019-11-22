@@ -1,8 +1,8 @@
-## ¿Quienes investigan sobre género?
+## ¿Quienes investigan sobre género? 
  
- Analizar la producción científica de estudios de género a nivel mundial para responder a una serie de interrogantes: 
--¿Cuál es la participación de las mujeres y los hombres dentro de esta área de investigación? ¿Ha habido algún cambio en los últimos años? 
--¿Que temas se investigan en los estudios de genero? ¿que investigan las mujeres? ¿Son los mismos que los hombres?
+28 a 29 de noviembre 2019 JORNADAS GÉNERO, CIENCIA, TECNOLOGÍA E INNOVACIÓN: CONOCIMIENTOS ESTRATÉGICOS PARA EL DESARROLLO HUMANO Y SOSTENIBLE, Buenos Aires, Argentina
+25 a 27 de septiembre 2019 LatinR 2019. Conferencia Latinoamericana sobre Uso de R en Investigación + Desarrollo, Santiago, Chile.
+
 
 ![alt text](https://github.com/juansokil/LatinR_2019/blob/master/03-Resultados/Quienes_Investigan_Sobre_Genero.jpg)
 
